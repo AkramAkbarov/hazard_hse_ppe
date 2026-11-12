@@ -1,30 +1,56 @@
+
+from pathlib import Path
+
 import cv2
 from ultralytics import YOLO
 
-model = YOLO("runs/detect/runs/hazard_v1-2/weights/best.pt")
 
-print("Model class-ları:", model.names)
+ROOT = Path(__file__).resolve().parent
+MODEL_PATH = ROOT / "runs" / "v2" / "weights" / "best.pt"
 
-cap = cv2.VideoCapture(0)
+CONFIDENCE = 0.5
 
-if not cap.isOpened():
-    print("Kamera açılmadı!")
-    exit()
 
-while True:
-    ret, frame = cap.read()
+def main():
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(f"Model not found: {MODEL_PATH}")
 
-    if not ret:
-        break
+    model = YOLO(str(MODEL_PATH))
 
-    results = model(frame, conf=0.5)
+    print("Model classes:", model.names)
 
-    frame = results[0].plot()
+    camera = cv2.VideoCapture(0)
 
-    cv2.imshow("Hazard Detection", frame)
+    if not camera.isOpened():
+        raise RuntimeError("Camera could not be opened.")
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
+    print("Camera started. Press 'q' to exit.")
 
-cap.release()
-cv2.destroyAllWindows()
+    try:
+        while True:
+            success, frame = camera.read()
+
+            if not success:
+                print("Failed to read camera frame.")
+                break
+
+            results = model.predict(
+                source=frame,
+                conf=CONFIDENCE,
+                verbose=False
+            )
+
+            annotated_frame = results[0].plot()
+
+            cv2.imshow("Hazard Detection", annotated_frame)
+
+            if cv2.waitKey(1) & 0xFF == ord("q"):
+                break
+
+    finally:
+        camera.release()
+        cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()
